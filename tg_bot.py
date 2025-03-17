@@ -5,6 +5,8 @@ from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import (CallbackContext, CommandHandler, Filters,
                           MessageHandler, Updater)
 
+from quiz import get_question
+
 
 def start(update: Update, context: CallbackContext) -> None:
     custom_keyboard = [
@@ -20,10 +22,12 @@ def start(update: Update, context: CallbackContext) -> None:
 
 
 def echo(update: Update, context: CallbackContext):
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=update.message.text
-    )
+    if update.message.text == 'Новый вопрос':
+        question = get_question()
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=question
+        )
 
 
 def main():

@@ -1,19 +1,20 @@
+import random
 from collections import defaultdict
 
 
-def main():
+def read_file():
     text = ''
     with open('questions/1vs1200.txt', 'r', encoding='KOI8-R') as file:
         text = file.read().split('\n\n')
 
-    questions = defaultdict(str)
+    quiz = defaultdict(str)
     for i, line in enumerate(text):
         if 'Ответ' in line:
-            questions[text[i-1]] = line
+            quiz[text[i-1]] = line
 
-    # for key, value in questions.items():
-    #     print(key, value)
+    return quiz
 
 
-if __name__ == '__main__':
-    main()
+def get_question():
+    quiz = read_file()
+    return random.choice(list(quiz.keys()))
