@@ -1,12 +1,15 @@
 import os
+import random
 
 import redis
 from dotenv import load_dotenv
 from telegram import ReplyKeyboardMarkup, Update
-from telegram.ext import (CallbackContext, CommandHandler, Filters,
-                          MessageHandler, Updater)
+from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
+                          Filters, MessageHandler, Updater)
 
-from quiz import get_question
+from quiz import get_quiz
+
+QUESTION, ANSWER = range(2)
 
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -20,20 +23,46 @@ def start(update: Update, context: CallbackContext) -> None:
         text="Привет! Я бот для викторин!",
         reply_markup=reply_markup
     )
+    return QUESTION
 
 
-def echo(update: Update, context: CallbackContext, db):
-    if update.message.text == 'Новый вопрос':
-        question = get_question()
+def handle_new_question_request(update: Update, context: CallbackContext, db, quiz):
+    question, answer = random.choice(list(quiz.items()))
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=question
+    )
+    context.user_data["answer"] = answer
+    success = db.set(update.effective_chat.id, question)
+    print(answer)
+    return ANSWER
+
+
+def handle_solution_attempt(update: Update, context: CallbackContext):
+    answer = context.user_data["answer"]
+    print(answer)
+    if update.message.text == answer:
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=question
+            text='Правильно! Поздравляю! Для следующего вопроса нажми «Новый вопрос»'
         )
-        success = db.set(update.effective_chat.id, question)
-        print(db.get(update.effective_chat.id))
+    else:
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Неправильно… Попробуешь ещё раз?'
+        )
+    return QUESTION
+
+
+def echo(update: Update, context: CallbackContext):
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='bye'
+        )
 
 
 def main():
+    quiz = get_quiz()
     load_dotenv()
     db = redis.Redis(
         host='redis-13330.c15.us-east-1-2.ec2.redns.redis-cloud.com',
@@ -45,12 +74,24 @@ def main():
 
     updater = Updater(token=os.environ['TELEGRAM_TOKEN'], use_context=True)
     dispatcher = updater.dispatcher
-    dispatcher.add_handler(CommandHandler("start", start))
-    echo_handler = MessageHandler(
-        Filters.text & (~Filters.command),
-        lambda update, context: echo(update, context, db)
+
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            QUESTION: [MessageHandler(
+                    Filters.text,
+                    lambda update, context:handle_new_question_request(update, context, db, quiz)
+                )
+            ],
+            ANSWER: [MessageHandler(
+                    Filters.text,
+                    lambda update, context:handle_solution_attempt(update, context)
+                )
+            ]
+        },
+        fallbacks=[CommandHandler('cancel', echo)]
     )
-    dispatcher.add_handler(echo_handler)
+    dispatcher.add_handler(conv_handler)
     updater.start_polling()
 
 
