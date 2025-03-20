@@ -9,7 +9,7 @@ from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
 
 from quiz import get_quiz
 
-QUESTION, ANSWER = range(2)
+QUESTION, ANSWER, FOLD = range(3)
 
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -35,7 +35,7 @@ def handle_new_question_request(update: Update, context: CallbackContext, db, qu
     context.user_data["answer"] = answer
     success = db.set(update.effective_chat.id, question)
     print(answer)
-    return ANSWER
+    return FOLD
 
 
 def handle_solution_attempt(update: Update, context: CallbackContext):
@@ -46,10 +46,22 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
             chat_id=update.effective_chat.id,
             text='Правильно! Поздравляю! Для следующего вопроса нажми «Новый вопрос»'
         )
+
     else:
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text='Неправильно… Попробуешь ещё раз?'
+        )
+    return QUESTION
+
+
+def handle_fold_button(update: Update, context: CallbackContext):
+    if update.message.text != 'Сдаться':
+        return handle_solution_attempt(update, context)
+    answer = context.user_data["answer"]
+    context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=answer
         )
     return QUESTION
 
@@ -83,11 +95,8 @@ def main():
                     lambda update, context:handle_new_question_request(update, context, db, quiz)
                 )
             ],
-            ANSWER: [MessageHandler(
-                    Filters.text,
-                    lambda update, context:handle_solution_attempt(update, context)
-                )
-            ]
+            ANSWER: [MessageHandler(Filters.text, handle_solution_attempt)],
+            FOLD: [MessageHandler(Filters.text, handle_fold_button)]
         },
         fallbacks=[CommandHandler('cancel', echo)]
     )
