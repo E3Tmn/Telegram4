@@ -35,7 +35,7 @@ def handle_new_question_request(update: Update, context: CallbackContext, db, qu
     context.user_data["answer"] = answer
     success = db.set(update.effective_chat.id, question)
     print(answer)
-    return FOLD
+    return ANSWER
 
 
 def handle_solution_attempt(update: Update, context: CallbackContext):
@@ -55,9 +55,7 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
     return QUESTION
 
 
-def handle_fold_button(update: Update, context: CallbackContext):
-    if update.message.text != 'Сдаться':
-        return handle_solution_attempt(update, context)
+def skip_question(update: Update, context: CallbackContext):
     answer = context.user_data["answer"]
     context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -95,8 +93,8 @@ def main():
                     lambda update, context:handle_new_question_request(update, context, db, quiz)
                 )
             ],
-            ANSWER: [MessageHandler(Filters.text, handle_solution_attempt)],
-            FOLD: [MessageHandler(Filters.text, handle_fold_button)]
+            ANSWER: [MessageHandler(Filters.regex(r"^Сдаться$"), skip_question),
+                     MessageHandler(Filters.text, handle_solution_attempt),],
         },
         fallbacks=[CommandHandler('cancel', echo)]
     )
