@@ -94,7 +94,7 @@ def main():
                 )
             ],
             ANSWER: [MessageHandler(Filters.regex(r"^Сдаться$"), skip_question),
-                     MessageHandler(Filters.text, handle_solution_attempt),],
+                     MessageHandler(Filters.text, handle_solution_attempt)],
         },
         fallbacks=[CommandHandler('cancel', echo)]
     )
